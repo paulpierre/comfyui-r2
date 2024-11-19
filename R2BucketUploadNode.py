@@ -2,11 +2,10 @@ import os
 import hashlib
 import json
 import requests
-from typing import Optional, Tuple
+from typing import Tuple
 import logging
 
 from PIL import Image
-import comfy.utils
 from nodes import NODE_CLASS_MAPPINGS
 
 # Set up logging
