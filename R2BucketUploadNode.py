@@ -7,7 +7,7 @@ import logging
 
 from PIL import Image
 import comfy.utils
-from nodes import NODE_CLASS_MAPPINGS, SOCKET_TYPES
+from nodes import NODE_CLASS_MAPPINGS
 
 # Set up logging
 logger = logging.getLogger('R2BucketUploadNode')
