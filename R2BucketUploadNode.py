@@ -2,7 +2,7 @@ import os
 import hashlib
 import json
 import requests
-from typing import Optional
+from typing import Optional, Tuple
 import logging
 
 from PIL import Image
@@ -29,6 +29,9 @@ except ImportError:
         raise
 
 class R2BucketUploadNode:
+    CATEGORY = "utils"
+    CATEGORY_DISPLAY_NAME = "🪣 R2 Storage"
+
     @classmethod
     def INPUT_TYPES(cls):
         return {
@@ -37,13 +40,13 @@ class R2BucketUploadNode:
                 "prompt": ("STRING", {"multiline": True}),
                 "negative_prompt": ("STRING", {"multiline": True}),
                 "model": ("STRING", {"multiline": False}),
-                "slack_webhook_url": ("STRING", {"default": "", "multiline": False}),
-                "r2_access_key_id": ("STRING", {"default": "", "multiline": False}),
-                "r2_secret_access_key": ("STRING", {"default": "", "multiline": False}),
-                "r2_upload_path": ("STRING", {"default": "assets", "multiline": False}),
-                "r2_endpoint": ("STRING", {"default": "", "multiline": False}),
-                "r2_bucket_name": ("STRING", {"default": "", "multiline": False}),
-                "r2_domain": ("STRING", {"default": "", "multiline": False}),
+                "slack_webhook_url": ("STRING", {"default": os.getenv("SLACK_WEBHOOK_URL", ""), "multiline": False}),
+                "r2_access_key_id": ("STRING", {"default": os.getenv("R2_ACCESS_KEY_ID", ""), "multiline": False}),
+                "r2_secret_access_key": ("STRING", {"default": os.getenv("R2_SECRET_ACCESS_KEY", ""), "multiline": False}),
+                "r2_upload_path": ("STRING", {"default": os.getenv("R2_UPLOAD_PATH", "assets"), "multiline": False}),
+                "r2_endpoint": ("STRING", {"default": os.getenv("R2_ENDPOINT", ""), "multiline": False}),
+                "r2_bucket_name": ("STRING", {"default": os.getenv("R2_BUCKET_NAME", ""), "multiline": False}),
+                "r2_domain": ("STRING", {"default": os.getenv("R2_DOMAIN", ""), "multiline": False}),
             },
         }
 
@@ -54,11 +57,29 @@ class R2BucketUploadNode:
 
     def upload_to_r2(self, image, prompt, negative_prompt, model, slack_webhook_url,
                      r2_access_key_id, r2_secret_access_key, r2_upload_path,
-                     r2_endpoint, r2_bucket_name, r2_domain):
+                     r2_endpoint, r2_bucket_name, r2_domain) -> Tuple[str, str]:
         try:
+            # Validate image dimensions and format
+            if not isinstance(image, dict) or "image" not in image:
+                raise ValueError("Invalid image input format")
+
+            img_array = image["image"]
+            if len(img_array.shape) != 3 or img_array.shape[2] not in [3, 4]:
+                raise ValueError("Image must be RGB or RGBA")
+
+            if img_array.shape[0] < 32 or img_array.shape[1] < 32:
+                raise ValueError("Image dimensions too small (minimum 32x32)")
+
+            # Use environment variables as fallback for credentials
+            r2_access_key_id = r2_access_key_id or os.getenv("R2_ACCESS_KEY_ID")
+            r2_secret_access_key = r2_secret_access_key or os.getenv("R2_SECRET_ACCESS_KEY")
+            r2_endpoint = r2_endpoint or os.getenv("R2_ENDPOINT")
+            r2_bucket_name = r2_bucket_name or os.getenv("R2_BUCKET_NAME")
+            r2_domain = r2_domain or os.getenv("R2_DOMAIN")
+
             # Validate required R2 credentials
             if not all([r2_access_key_id, r2_secret_access_key, r2_endpoint, r2_bucket_name, r2_domain]):
-                raise ValueError("Missing required R2 credentials")
+                raise ValueError("Missing required R2 credentials in inputs or environment variables")
 
             # Save image to a temporary file
             temp_image_path = "temp_image.png"
